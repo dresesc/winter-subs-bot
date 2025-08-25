@@ -128,8 +128,11 @@ def get_member_by_id(user_id):
     return row
 
 # ========= HELPERS =========
+def username_or_id(username, user_id):
+    return f"@{username}" if username else str(user_id)
+
 async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Resolver usuario desde reply, @usuario o ID."""
+    """Resolver usuario desde reply, @usuario o ID (usando tabla members)."""
     if update.message.reply_to_message:
         return update.message.reply_to_message.from_user
 
@@ -167,7 +170,7 @@ async def sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = await resolve_target(update, context)
     if not user:
-        await update.message.reply_text("No se pudo encontrar al usuario.")
+        await update.message.reply_text("no se pudo encontrar al usuario.")
         return
 
     try:
@@ -179,7 +182,7 @@ async def sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user(user.id, user.username or user.full_name, "premium", dias)
     fecha_vencimiento = (datetime.now() + timedelta(days=dias)).strftime("%d/%m/%Y")
     await update.message.reply_text(
-        f"¡hola, {user.username or user.full_name}! se han añadido {dias} días a tu suscripción premium.\n"
+        f"¡hola, {user.full_name}! se han añadido {dias} días a tu suscripción premium.\n"
         f"🪽⊹ tu cupo vence el {fecha_vencimiento}"
     )
 
@@ -197,7 +200,7 @@ async def free(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     add_user(user.id, user.username or user.full_name, "free")
     await update.message.reply_text(
-        f"¡hola, {user.username or user.full_name}! eres cupo free dentro de 𝔀inter 𝓹riv. "
+        f"¡hola, {user.full_name}! eres cupo free dentro de 𝔀inter 𝓹riv. "
         "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo. ❤︎"
     )
 
@@ -212,7 +215,7 @@ async def addmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     add_user(user.id, user.username or user.full_name, "mod")
     await update.message.reply_text(
-        f"¡hola, {user.username or user.full_name}! ahora eres parte del staff "
+        f"¡hola, {user.full_name}! ahora eres parte del staff "
         "con cupo ilimitado dentro de 𝔀inter 𝓹riv. 🪽⊹"
     )
 
@@ -227,7 +230,7 @@ async def unmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     remove_user(user.id)
     await update.message.reply_text(
-        f"{user.username or user.full_name} ha sido removido del staff de 𝔀inter 𝓹riv."
+        f"{user.full_name} ha sido removido del staff de 𝔀inter 𝓹riv."
     )
 
 async def unsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -244,31 +247,39 @@ async def unsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # kick temporal
         await context.bot.ban_chat_member(update.effective_chat.id, user.id)
         await context.bot.unban_chat_member(update.effective_chat.id, user.id)
-        await update.message.reply_text(f"{user.username or user.full_name} fue expulsado de 𝔀inter 𝓹riv..")
+        await update.message.reply_text(f"{user.full_name} fue expulsado de 𝔀inter 𝓹riv..")
     except Exception as e:
         await update.message.reply_text(f"error al expulsar: {e}")
 
 async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+
+    # 👑 Si es el owner
+    if user.id == ADMIN_ID:
+        await update.message.reply_text("blud eres el owner.")
+        return
+
     sub = get_user(user.id)
     if not sub:
         await update.message.reply_text("no tienes ninguna suscripción activa.")
         return
 
     username, tipo, vence = sub
+    nombre = user.full_name
+
     if tipo == "premium":
         await update.message.reply_text(
-            f"¡hola, {username}! eres cupo premium dentro de 𝔀inter 𝓹riv.\n"
+            f"¡hola, {nombre}! eres cupo premium dentro de 𝔀inter 𝓹riv.\n"
             f"🪽⊹ tu cupo vence el {vence.strftime('%d/%m/%Y') if vence else 'desconocido'}"
         )
     elif tipo == "free":
         await update.message.reply_text(
-            f"¡hola, {username}! eres cupo free dentro de 𝔀inter 𝓹riv. "
+            f"¡hola, {nombre}! eres cupo free dentro de 𝔀inter 𝓹riv. "
             "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo."
         )
     elif tipo == "mod":
         await update.message.reply_text(
-            f"¡hola, {username}! eres parte del staff en 𝔀inter 𝓹riv. "
+            f"¡hola, {nombre}! eres parte del staff en 𝔀inter 𝓹riv. "
             "tu cupo es ilimitado mientras seas parte de nuestra administración."
         )
 
@@ -277,14 +288,12 @@ async def listmods(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     usuarios = get_all_users()
-    mods = [f"- {username or user_id}" for user_id, username, tipo, vence in usuarios if tipo == "mod"]
+    mods = [f"- {username_or_id(username, user_id)}" for user_id, username, tipo, vence in usuarios if tipo == "mod"]
 
     if not mods:
-        await update.message.reply_text("No hay miembros del staff registrados.")
+        await update.message.reply_text("no hay miembros del staff registrados.")
     else:
-        await update.message.reply_text(
-            "👑 Lista de staff (mods):\n" + "\n".join(mods)
-        )
+        await update.message.reply_text("𝓐dministración\n" + "\n".join(mods))
 
 async def listusers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -292,19 +301,50 @@ async def listusers(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     usuarios = get_all_users()
     if not usuarios:
-        await update.message.reply_text("No hay usuarios registrados en la base de datos.")
+        await update.message.reply_text("no hay usuarios registrados en la base de datos.")
         return
 
-    texto = "📋 Lista de usuarios registrados:\n"
+    texto = "𝓜iembros\n"
     for user_id, username, tipo, vence in usuarios:
+        nombre = username_or_id(username, user_id)
+
         if tipo == "premium":
-            texto += f"- {username or user_id} | Premium (vence: {vence.strftime('%d/%m/%Y') if vence else '??'})\n"
+            texto += f"- {nombre} | premium (vence: {vence.strftime('%d/%m/%Y') if vence else '??'})\n"
         elif tipo == "free":
-            texto += f"- {username or user_id} | Free\n"
+            texto += f"- {nombre} | free\n"
         elif tipo == "mod":
-            texto += f"- {username or user_id} | Staff (mod)\n"
+            texto += f"- {nombre} | staff (mod)\n"
 
     await update.message.reply_text(texto)
+
+async def whois(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    if not context.args and not update.message.reply_to_message:
+        await update.message.reply_text("uso: /whois @usuario (o responde a su mensaje).")
+        return
+
+    user = await resolve_target(update, context)
+    if not user:
+        await update.message.reply_text("usuario no encontrado en la base de datos.")
+        return
+
+    sub = get_user(user.id)
+    if not sub:
+        await update.message.reply_text(f"{username_or_id(user.username, user.id)} no tiene suscripción activa.")
+        return
+
+    username, tipo, vence = sub
+    nombre = username_or_id(username, user.id)
+
+    if tipo == "premium":
+        await update.message.reply_text(
+            f"{nombre} tiene suscripción premium hasta el {vence.strftime('%d/%m/%Y') if vence else 'desconocido'}."
+        )
+    elif tipo == "free":
+        await update.message.reply_text(f"{nombre} tiene cupo free.")
+    elif tipo == "mod":
+        await update.message.reply_text(f"{nombre} es admin del priv.")
 
 # ========= TRACKING =========
 async def track_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -348,6 +388,7 @@ def main():
     app.add_handler(CommandHandler("mysub", mysub))
     app.add_handler(CommandHandler("listmods", listmods))
     app.add_handler(CommandHandler("listusers", listusers))
+    app.add_handler(CommandHandler("whois", whois))
 
     # tracking de usuarios
     app.add_handler(MessageHandler(filters.ALL, track_messages))
