@@ -3,7 +3,7 @@ import asyncio
 import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
-from telegram import Update, ChatAdministratorRights, ChatMember
+from telegram import Update, ChatMember
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -210,34 +210,11 @@ async def addmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("uso: /addmod @usuario (o responde a su mensaje).")
         return
 
-    try:
-        await context.bot.promote_chat_member(
-            update.effective_chat.id,
-            user.id,
-            ChatAdministratorRights(
-                is_anonymous=False,
-                can_manage_chat=True,
-                can_delete_messages=True,
-                can_manage_video_chats=True,
-                can_restrict_members=True,
-                can_promote_members=False,
-                can_change_info=True,
-                can_invite_users=True,
-                can_pin_messages=True,
-                can_post_stories=False,
-                can_edit_stories=False,
-                can_delete_stories=False
-            )
-        )
-        await context.bot.set_chat_administrator_custom_title(
-            update.effective_chat.id,
-            user.id,
-            "admin. ʚ"
-        )
-        add_user(user.id, user.username or user.full_name, "mod")
-        await update.message.reply_text(f"{user.username or user.full_name} ahora es admin con título personalizado.")
-    except Exception as e:
-        await update.message.reply_text(f"error al promover: {e}")
+    add_user(user.id, user.username or user.full_name, "mod")
+    await update.message.reply_text(
+        f"¡hola, {user.username or user.full_name}! ahora eres parte del staff "
+        "con cupo ilimitado dentro de 𝔀inter 𝓹riv. 🪽⊹"
+    )
 
 async def unmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -248,32 +225,10 @@ async def unmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("uso: /unmod @usuario (o responde a su mensaje).")
         return
 
-    try:
-        await context.bot.promote_chat_member(
-            update.effective_chat.id,
-            user.id,
-            ChatAdministratorRights(
-                is_anonymous=False,
-                can_manage_chat=False,
-                can_delete_messages=False,
-                can_manage_video_chats=False,
-                can_restrict_members=False,
-                can_promote_members=False,
-                can_change_info=False,
-                can_invite_users=False,
-                can_pin_messages=False,
-                can_post_stories=False,
-                can_edit_stories=False,
-                can_delete_stories=False
-            )
-        )
-        remove_user(user.id)
-        # kick temporal (puede volver con link)
-        await context.bot.ban_chat_member(update.effective_chat.id, user.id)
-        await context.bot.unban_chat_member(update.effective_chat.id, user.id)
-        await update.message.reply_text(f"{user.username or user.full_name} ha sido removido como admin de 𝔀inter 𝓹riv.")
-    except Exception as e:
-        await update.message.reply_text(f"error al remover: {e}")
+    remove_user(user.id)
+    await update.message.reply_text(
+        f"{user.username or user.full_name} ha sido removido del staff de 𝔀inter 𝓹riv."
+    )
 
 async def unsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -317,6 +272,40 @@ async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "tu cupo es ilimitado mientras seas parte de nuestra administración."
         )
 
+async def listmods(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    usuarios = get_all_users()
+    mods = [f"- {username or user_id}" for user_id, username, tipo, vence in usuarios if tipo == "mod"]
+
+    if not mods:
+        await update.message.reply_text("No hay miembros del staff registrados.")
+    else:
+        await update.message.reply_text(
+            "👑 Lista de staff (mods):\n" + "\n".join(mods)
+        )
+
+async def listusers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    usuarios = get_all_users()
+    if not usuarios:
+        await update.message.reply_text("No hay usuarios registrados en la base de datos.")
+        return
+
+    texto = "📋 Lista de usuarios registrados:\n"
+    for user_id, username, tipo, vence in usuarios:
+        if tipo == "premium":
+            texto += f"- {username or user_id} | Premium (vence: {vence.strftime('%d/%m/%Y') if vence else '??'})\n"
+        elif tipo == "free":
+            texto += f"- {username or user_id} | Free\n"
+        elif tipo == "mod":
+            texto += f"- {username or user_id} | Staff (mod)\n"
+
+    await update.message.reply_text(texto)
+
 # ========= TRACKING =========
 async def track_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -357,6 +346,8 @@ def main():
     app.add_handler(CommandHandler("unmod", unmod))
     app.add_handler(CommandHandler("unsub", unsub))
     app.add_handler(CommandHandler("mysub", mysub))
+    app.add_handler(CommandHandler("listmods", listmods))
+    app.add_handler(CommandHandler("listusers", listusers))
 
     # tracking de usuarios
     app.add_handler(MessageHandler(filters.ALL, track_messages))
