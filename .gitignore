@@ -1,0 +1,32 @@
+# Entorno virtual
+venv/
+.venv/
+
+# Archivos de configuración sensibles
+.env
+*.env
+
+# Archivos de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+
+# Archivos de logs
+*.log
+
+# Archivos de base de datos locales (si pruebas con SQLite)
+*.db
+*.sqlite3
+
+# Archivos generados por editor/IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Archivos de despliegue
+*.egg-info/
+dist/
+build/
