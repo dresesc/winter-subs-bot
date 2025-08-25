@@ -1,9 +1,10 @@
+import os 
 import asyncio
 import psycopg2
+import psycopg2.extras
 from datetime import datetime, timedelta
 from telegram import Update, ChatAdministratorRights, ChatMemberAdministrator
 from telegram.ext import Application, CommandHandler, ContextTypes
-import os
 
 # ========= CONFIG =========
 TOKEN = os.getenv("BOT_TOKEN")
