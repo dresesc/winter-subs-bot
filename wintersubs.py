@@ -1,10 +1,17 @@
-import os 
+import os
 import asyncio
 import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
-from telegram import Update, ChatAdministratorRights
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, ChatAdministratorRights, ChatMember
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    ChatMemberHandler,
+    filters,
+)
 
 # ========= CONFIG =========
 TOKEN = os.getenv("BOT_TOKEN")
@@ -21,12 +28,22 @@ def get_conn():
 def init_db():
     conn = get_conn()
     cur = conn.cursor()
+    # tabla de suscripciones
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id BIGINT PRIMARY KEY,
             username TEXT,
             tipo TEXT,
             vence DATE
+        )
+    """)
+    # tabla de miembros
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS members (
+            user_id BIGINT PRIMARY KEY,
+            username TEXT,
+            full_name TEXT,
+            last_seen TIMESTAMP DEFAULT NOW()
         )
     """)
     conn.commit()
@@ -77,53 +94,110 @@ def get_all_users():
     conn.close()
     return rows
 
-# ========= COMANDOS =========
+def update_member(user_id, username, full_name):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO members (user_id, username, full_name, last_seen)
+        VALUES (%s, %s, %s, NOW())
+        ON CONFLICT (user_id) DO UPDATE
+        SET username = EXCLUDED.username,
+            full_name = EXCLUDED.full_name,
+            last_seen = NOW()
+    """, (user_id, username, full_name))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_member_by_username(username):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, username, full_name FROM members WHERE username=%s", (username,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
+def get_member_by_id(user_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, username, full_name FROM members WHERE user_id=%s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
+# ========= HELPERS =========
+async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Resolver usuario desde reply, @usuario o ID."""
+    if update.message.reply_to_message:
+        return update.message.reply_to_message.from_user
+
+    if not context.args:
+        return None
+
+    arg = context.args[0]
+    if arg.isdigit():  # ID numérico
+        member = get_member_by_id(int(arg))
+        if member:
+            class Temp: pass
+            u = Temp()
+            u.id, u.username, u.full_name = member
+            return u
+        else:
+            return None
+    else:  # @usuario
+        username_arg = arg.lstrip("@")
+        member = get_member_by_username(username_arg)
+        if member:
+            class Temp: pass
+            u = Temp()
+            u.id, u.username, u.full_name = member
+            return u
+        else:
+            return None
+
+# ========= HANDLERS =========
 async def sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
-    if len(context.args) < 2:
-        await update.message.reply_text("Uso: /sub @usuario {días}")
+    if len(context.args) < 2 and not update.message.reply_to_message:
+        await update.message.reply_text("uso: /sub @usuario {días}")
         return
 
-    username_arg = context.args[0].lstrip("@")
+    user = await resolve_target(update, context)
+    if not user:
+        await update.message.reply_text("No se pudo encontrar al usuario.")
+        return
+
     try:
-        dias = int(context.args[1])
+        dias = int(context.args[1]) if len(context.args) > 1 else 30
     except ValueError:
         await update.message.reply_text("los días deben ser un número.")
         return
 
-    try:
-        member = await context.bot.get_chat_member(update.effective_chat.id, username_arg)
-        user = member.user
-    except:
-        await update.message.reply_text("no se encontró al usuario en el grupo.")
-        return
-
-    add_user(user.id, username_arg, "premium", dias)
+    add_user(user.id, user.username or user.full_name, "premium", dias)
     fecha_vencimiento = (datetime.now() + timedelta(days=dias)).strftime("%d/%m/%Y")
     await update.message.reply_text(
-        f"¡hola, {username_arg}! se han añadido {dias} días a tu suscripción premium dentro de 𝔀inter 𝓹riv. ❤︎\n"
+        f"¡hola, {user.username or user.full_name}! se han añadido {dias} días a tu suscripción premium.\n"
         f"🪽⊹ tu cupo vence el {fecha_vencimiento}"
     )
 
 async def free(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
-    if len(context.args) < 1:
+    if not context.args and not update.message.reply_to_message:
         await update.message.reply_text("uso: /free @usuario")
         return
 
-    username_arg = context.args[0].lstrip("@")
-    try:
-        member = await context.bot.get_chat_member(update.effective_chat.id, username_arg)
-        user = member.user
-    except:
-        await update.message.reply_text("no se encontró al usuario en el grupo.")
+    user = await resolve_target(update, context)
+    if not user:
+        await update.message.reply_text("no se pudo encontrar al usuario.")
         return
 
-    add_user(user.id, username_arg, "free")
+    add_user(user.id, user.username or user.full_name, "free")
     await update.message.reply_text(
-        f"¡hola, {username_arg}! eres cupo free dentro de 𝔀inter 𝓹riv. "
+        f"¡hola, {user.username or user.full_name}! eres cupo free dentro de 𝔀inter 𝓹riv. "
         "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo. ❤︎"
     )
 
@@ -131,20 +205,10 @@ async def addmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
 
-    if not context.args and not update.message.reply_to_message:
+    user = await resolve_target(update, context)
+    if not user:
         await update.message.reply_text("uso: /addmod @usuario (o responde a su mensaje).")
         return
-
-    if update.message.reply_to_message:
-        user = update.message.reply_to_message.from_user
-    else:
-        username_arg = context.args[0].lstrip("@")
-        try:
-            member = await context.bot.get_chat_member(update.effective_chat.id, username_arg)
-            user = member.user
-        except:
-            await update.message.reply_text("no se encontró al usuario en el grupo.")
-            return
 
     try:
         await context.bot.promote_chat_member(
@@ -159,7 +223,10 @@ async def addmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 can_promote_members=False,
                 can_change_info=True,
                 can_invite_users=True,
-                can_pin_messages=True
+                can_pin_messages=True,
+                can_post_stories=False,
+                can_edit_stories=False,
+                can_delete_stories=False
             )
         )
         await context.bot.set_chat_administrator_custom_title(
@@ -168,7 +235,7 @@ async def addmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "admin. ʚ"
         )
         add_user(user.id, user.username or user.full_name, "mod")
-        await update.message.reply_text(f"{user.full_name} ahora es admin con título personalizado.")
+        await update.message.reply_text(f"{user.username or user.full_name} ahora es admin con título personalizado.")
     except Exception as e:
         await update.message.reply_text(f"error al promover: {e}")
 
@@ -176,20 +243,10 @@ async def unmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
 
-    if not context.args and not update.message.reply_to_message:
+    user = await resolve_target(update, context)
+    if not user:
         await update.message.reply_text("uso: /unmod @usuario (o responde a su mensaje).")
         return
-
-    if update.message.reply_to_message:
-        user = update.message.reply_to_message.from_user
-    else:
-        username_arg = context.args[0].lstrip("@")
-        try:
-            member = await context.bot.get_chat_member(update.effective_chat.id, username_arg)
-            user = member.user
-        except:
-            await update.message.reply_text("no se encontró al usuario.")
-            return
 
     try:
         await context.bot.promote_chat_member(
@@ -204,38 +261,35 @@ async def unmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 can_promote_members=False,
                 can_change_info=False,
                 can_invite_users=False,
-                can_pin_messages=False
+                can_pin_messages=False,
+                can_post_stories=False,
+                can_edit_stories=False,
+                can_delete_stories=False
             )
         )
         remove_user(user.id)
-        await update.message.reply_text(f"{user.full_name} ha sido removido como admin de 𝔀inter 𝓹riv.")
+        # kick temporal (puede volver con link)
+        await context.bot.ban_chat_member(update.effective_chat.id, user.id)
+        await context.bot.unban_chat_member(update.effective_chat.id, user.id)
+        await update.message.reply_text(f"{user.username or user.full_name} ha sido removido como admin de 𝔀inter 𝓹riv.")
     except Exception as e:
         await update.message.reply_text(f"error al remover: {e}")
-
 
 async def unsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
 
-    if not context.args and not update.message.reply_to_message:
+    user = await resolve_target(update, context)
+    if not user:
         await update.message.reply_text("uso: /unsub @usuario (o responde a su mensaje).")
         return
 
-    if update.message.reply_to_message:
-        user = update.message.reply_to_message.from_user
-    else:
-        username_arg = context.args[0].lstrip("@")
-        try:
-            member = await context.bot.get_chat_member(update.effective_chat.id, username_arg)
-            user = member.user
-        except:
-            await update.message.reply_text("no se encontró al usuario.")
-            return
-
     try:
         remove_user(user.id)
+        # kick temporal
         await context.bot.ban_chat_member(update.effective_chat.id, user.id)
-        await update.message.reply_text(f"{user.full_name} fue expulsado de 𝔀inter 𝓹riv..")
+        await context.bot.unban_chat_member(update.effective_chat.id, user.id)
+        await update.message.reply_text(f"{user.username or user.full_name} fue expulsado de 𝔀inter 𝓹riv..")
     except Exception as e:
         await update.message.reply_text(f"error al expulsar: {e}")
 
@@ -255,13 +309,25 @@ async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif tipo == "free":
         await update.message.reply_text(
             f"¡hola, {username}! eres cupo free dentro de 𝔀inter 𝓹riv. "
-            "recuerda mandar un mínimo de 4 referencias semanales para continuar con tu cupo."
+            "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo."
         )
     elif tipo == "mod":
         await update.message.reply_text(
             f"¡hola, {username}! eres parte del staff en 𝔀inter 𝓹riv. "
             "tu cupo es ilimitado mientras seas parte de nuestra administración."
         )
+
+# ========= TRACKING =========
+async def track_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if user:
+        update_member(user.id, user.username, user.full_name)
+
+async def track_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_member: ChatMember = update.chat_member
+    user = chat_member.from_user
+    if user:
+        update_member(user.id, user.username, user.full_name)
 
 # ========= RECORDATORIOS =========
 async def reminder_job(context):
@@ -273,8 +339,8 @@ async def reminder_job(context):
                 try:
                     await context.bot.send_message(
                         user_id,
-                        f"¡holi! te recordamos que tu suscripción vence el día {fecha_venc.strftime('%d/%m/%Y')} "
-                        "puedes contactar al owner para volver a adquirir nuestros servicios. ♪"
+                        f"¡holi! tu suscripción vence el {fecha_venc.strftime('%d/%m/%Y')} "
+                        "puedes contactar al owner para renovar."
                     )
                 except:
                     pass
@@ -284,12 +350,17 @@ def main():
     init_db()
     app = Application.builder().token(TOKEN).build()
 
+    # comandos
     app.add_handler(CommandHandler("sub", sub))
     app.add_handler(CommandHandler("free", free))
     app.add_handler(CommandHandler("addmod", addmod))
     app.add_handler(CommandHandler("unmod", unmod))
     app.add_handler(CommandHandler("unsub", unsub))
     app.add_handler(CommandHandler("mysub", mysub))
+
+    # tracking de usuarios
+    app.add_handler(MessageHandler(filters.ALL, track_messages))
+    app.add_handler(ChatMemberHandler(track_chat_members, ChatMemberHandler.CHAT_MEMBER))
 
     # recordatorio 1 vez al día
     app.job_queue.run_repeating(reminder_job, interval=86400, first=10)
