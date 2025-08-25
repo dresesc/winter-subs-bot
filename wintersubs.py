@@ -132,7 +132,7 @@ def username_or_id(username, user_id):
     return f"@{username}" if username else str(user_id)
 
 async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Resolver usuario desde reply, @usuario o ID (usando tabla members)."""
+    """resolver usuario desde reply, @usuario o ID (usando tabla members)."""
     if update.message.reply_to_message:
         return update.message.reply_to_message.from_user
 
@@ -161,6 +161,13 @@ async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return None
 
 # ========= HANDLERS =========
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat.type == "private":
+        await update.message.reply_text(
+            "𓈒 ࣪ ˖ ¡holi! soy el bot encargado de llevar tu suscripción dentro de 𝔀inter 𝓹riv. "
+            "usa el comando /mysub para ver su estado. ♪ 🪽🪽"
+        )
+
 async def sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
@@ -275,12 +282,12 @@ async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif tipo == "free":
         await update.message.reply_text(
             f"¡hola, {nombre}! eres cupo free dentro de 𝔀inter 𝓹riv. "
-            "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo."
+        "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo. ❤︎"
         )
     elif tipo == "mod":
         await update.message.reply_text(
             f"¡hola, {nombre}! eres parte del staff en 𝔀inter 𝓹riv. "
-            "tu cupo es ilimitado mientras seas parte de nuestra administración."
+            "tu cupo es ilimitado mientras seas parte de nuestra administración. 🪽⊹"
         )
 
 async def listmods(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -346,42 +353,6 @@ async def whois(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif tipo == "mod":
         await update.message.reply_text(f"{nombre} es admin del priv.")
 
-# ========= CUSTOM TITLE =========
-async def title(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
-
-    if len(context.args) < 2 and not update.message.reply_to_message:
-        await update.message.reply_text("uso: /title @usuario [custom title]")
-        return
-
-    user = await resolve_target(update, context)
-    if not user:
-        await update.message.reply_text("no se pudo encontrar al usuario.")
-        return
-
-    # El título es todo el texto después del primer argumento (username)
-    if update.message.reply_to_message:
-        custom_title = " ".join(context.args)
-    else:
-        custom_title = " ".join(context.args[1:])
-
-    if not custom_title:
-        await update.message.reply_text("debes escribir un título.")
-        return
-
-    try:
-        await context.bot.set_chat_administrator_custom_title(
-            chat_id=update.effective_chat.id,
-            user_id=user.id,
-            custom_title=custom_title
-        )
-        await update.message.reply_text(
-            f"✅ {user.full_name} ahora tiene el título «{custom_title}»."
-        )
-    except Exception as e:
-        await update.message.reply_text(f"error al asignar título: {e}")
-
 # ========= TRACKING =========
 async def track_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -416,6 +387,7 @@ def main():
     app = Application.builder().token(TOKEN).build()
 
     # comandos
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("sub", sub))
     app.add_handler(CommandHandler("free", free))
     app.add_handler(CommandHandler("addmod", addmod))
@@ -425,7 +397,6 @@ def main():
     app.add_handler(CommandHandler("listmods", listmods))
     app.add_handler(CommandHandler("listusers", listusers))
     app.add_handler(CommandHandler("whois", whois))
-    app.add_handler(CommandHandler("title", title))
 
     # tracking de usuarios
     app.add_handler(MessageHandler(filters.ALL, track_messages))
