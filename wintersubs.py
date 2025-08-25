@@ -233,22 +233,20 @@ async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # ========= RECORDATORIOS =========
-async def reminder_task(app: Application):
-    while True:
-        usuarios = get_all_users()
-        for user_id, username, tipo, vence in usuarios:
-            if tipo == "premium" and vence:
-                fecha_venc = vence
-                if fecha_venc - timedelta(days=2) == datetime.now().date():
-                    try:
-                        await app.bot.send_message(
-                            user_id,
-                            f"¡holi! te recordamos que tu suscripción vence el día {fecha_venc.strftime('%d/%m/%Y')} "
-                            "puedes contactar al propietario para volver a adquirir nuestros servicios. ♪"
-                        )
-                    except:
-                        pass
-        await asyncio.sleep(86400)
+async def reminder_job(context):
+    usuarios = get_all_users()
+    for user_id, username, tipo, vence in usuarios:
+        if tipo == "premium" and vence:
+            fecha_venc = vence
+            if fecha_venc - timedelta(days=2) == datetime.now().date():
+                try:
+                    await context.bot.send_message(
+                        user_id,
+                        f"¡holi! te recordamos que tu suscripción vence el día {fecha_venc.strftime('%d/%m/%Y')} "
+                        "puedes contactar al propietario para volver a adquirir nuestros servicios. ♪"
+                    )
+                except:
+                    pass
 
 # ========= MAIN =========
 def main():
@@ -263,7 +261,8 @@ def main():
     app.add_handler(CommandHandler("unsub", unsub))
     app.add_handler(CommandHandler("mysub", mysub))
 
-    app.job_queue.run_repeating(lambda ctx: asyncio.create_task(reminder_task(app)), interval=86400, first=10)
+    # recordatorio 1 vez al día
+    app.job_queue.run_repeating(reminder_job, interval=86400, first=10)
 
     print("Bot corriendo con WEBHOOK...")
     app.run_webhook(
