@@ -363,7 +363,7 @@ def plan_keyboard(tipo="buy"):
         [InlineKeyboardButton("15 días : 20 robux", callback_data=f"{tipo}_plan_15")],
         [InlineKeyboardButton("30 días : 55 robux", callback_data=f"{tipo}_plan_30")],
         [InlineKeyboardButton("45 días : 80 robux", callback_data=f"{tipo}_plan_45")],
-        [InlineKeyboardButton("¿otro método de pago? habla con el owner. ❤︎", url="https://t.me/minangels")]
+        [InlineKeyboardButton("¿otro método de pago?", url="https://t.me/minangels")]
     ])
 
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
