@@ -368,7 +368,7 @@ def plan_keyboard(tipo="buy"):
         [InlineKeyboardButton("15 días : 20 robux", callback_data=f"{tipo}_plan_15")],
         [InlineKeyboardButton("30 días : 55 robux", callback_data=f"{tipo}_plan_30")],
         [InlineKeyboardButton("45 días : 80 robux", callback_data=f"{tipo}_plan_45")],
-        [InlineKeyboardButton("¿Otro método de pago? ❤︎", url="https://t.me/minangels")]
+        [InlineKeyboardButton("¿otro método de pago? habla con el owner. ❤︎", url="https://t.me/minangels")]
     ])
 
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -402,6 +402,14 @@ PLAN_INFO = {
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    # 🔹 Eliminar el mensaje del botón anterior
+    try:
+        await query.message.delete()
+    except:
+        # si no se puede borrar (ej. por permisos), al menos quitamos los botones
+        await query.edit_message_reply_markup(reply_markup=None)
+
     data = query.data
     if data.startswith("buy_") or data.startswith("renew_"):
         _, plan_key = data.split("_", 1)
@@ -409,13 +417,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         texto = (
             f"{nombre}\n"
             f"¿cómo {'adquirir' if data.startswith('buy') else 'renovar'}?\n"
-            "haz clic en el enlace de compra y toma un pantallazo que muestre que adquiriste el gamepass. asegúrate de que se vean tu nombre de usuario y la confirmación de compra, ¡y listo! envía la captura por este chat.\n"
-            "𝄞 ojo : si la imagen tiene recortes o está editada, no se considerará legítima. en ese caso, deberás contactar al owner. @dresesc\n\n"
+            "haz clic en el enlace de compra y toma un pantallazo que muestre que adquiriste el gamepass. "
+            "asegúrate de que se vean tu nombre de usuario y la confirmación de compra, ¡y listo! "
+            "envía la captura por este chat.\n"
+            "𝄞 ojo : si la imagen tiene recortes o está editada, no se considerará legítima. "
+            "en ese caso, deberás contactar al owner. @dresesc\n\n"
             f"link de compra : {link}\n"
-            f"¡muchas gracias por {'adquirir' if data.startswith('buy') else 'renovar'} 𝔀inter 𝓹riv! disfruta tu estadía con nosotros."
+            f"¡muchas gracias por {'adquirir' if data.startswith('buy') else 'renovar'} 𝔀inter 𝓹riv! "
+            "disfruta tu estadía con nosotros."
         )
         await query.message.reply_text(texto)
         context.user_data["pending_plan"] = (dias, data.startswith("renew"))
+
 
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
