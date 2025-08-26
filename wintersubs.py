@@ -3,9 +3,10 @@ import asyncio
 import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
-from telegram import Update, ChatMember
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ChatMember
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -20,6 +21,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # ej: https://mi-bot.onrender.com
 WEBHOOK_PORT = int(os.getenv("PORT", "8443"))
+
+GROUP_LINK = "https://t.me/+hv3Rlu5sQCE5OWVh"
 
 # ========= BASE DE DATOS =========
 def get_conn():
@@ -164,8 +167,8 @@ async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat.type == "private":
         await update.message.reply_text(
-            "𓈒 ࣪ ˖ ¡holi! soy el bot encargado de llevar tu suscripción dentro de 𝔀inter 𝓹riv. "
-            "usa el comando /mysub para ver su estado. ♪ 🪽🪽"
+            "𓈒 ࣪ ˖ ¡holi! soy el bot encargado de gestionar tu suscripción dentro de 𝔀inter 𝓹riv. ♪ 🪽🪽 \n"
+            "usa el comando /help para que pueda ayudarte."
         )
 
 async def sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -353,6 +356,104 @@ async def whois(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif tipo == "mod":
         await update.message.reply_text(f"{nombre} es admin del priv.")
 
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "᭝ ᨳଓ ՟ /buy = ¿primera vez con nosotros? usa este comando para adquirir tu cupo premium. ¡anímate a ser parte de esta linda comunidad!\n\n"
+        "᭝ ᨳଓ ՟ /renew = usa este comando para renovar tu cupo premium.\n\n"
+        "᭝ ᨳଓ ՟ /mysub = muestra el estado actual de tu suscripción en nuestro priv."
+    )
+
+def plan_keyboard(tipo="buy"):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("15 días : 20 robux", callback_data=f"{tipo}_plan_15")],
+        [InlineKeyboardButton("30 días : 55 robux", callback_data=f"{tipo}_plan_30")],
+        [InlineKeyboardButton("45 días : 80 robux", callback_data=f"{tipo}_plan_45")],
+        [InlineKeyboardButton("¿Otro método de pago? ❤︎", url="https://t.me/minangels")]
+    ])
+
+async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "𝓦inter 𝓟riv 𓂋 🪽\n"
+        "¡muchísimas gracias por querer adquirir nuestros servicios y apoyar este proyecto! este priv hará lo mejor para guiarte en este mundo del bineo.\n\n"
+        "໒꒱ elige el plan que desees y que sea más accesible para ti. recuerda que todos nuestros planes cuentan con los mismos beneficios.",
+        reply_markup=plan_keyboard("buy")
+    )
+
+async def renew(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sub = get_user(update.effective_user.id)
+    if not sub or sub[1] != "premium":
+        await update.message.reply_text(
+            "mmm… no tenías una suscripción premium activa anteriormente. debes usar el comando /buy."
+        )
+        return
+    await update.message.reply_text(
+        "𝓦inter 𝓟riv 𓂋 🪽\n"
+        "¡muchísimas gracias por querer renovar nuestros servicios y apoyar este proyecto! este priv hará lo mejor para guiarte en este mundo del bineo.\n\n"
+        "໒꒱ elige el plan que desees y que sea más accesible para ti. recuerda que todos nuestros planes cuentan con los mismos beneficios.",
+        reply_markup=plan_keyboard("renew")
+    )
+
+PLAN_INFO = {
+    "plan_15": ("𝓟remium 𝟭𝟱 𝓓ías", 15, "https://www.roblox.com/es/game-pass/1421913677/winter-priv-15-d-as"),
+    "plan_30": ("𝓟remium 𝟯𝟬 𝓓ías", 30, "https://www.roblox.com/es/game-pass/1421828046/winter-priv-30-d-as"),
+    "plan_45": ("𝓟remium 𝟰𝟱 𝓓ías", 45, "https://www.roblox.com/es/game-pass/1421941643/winter-priv-45-d-as"),
+}
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    if data.startswith("buy_") or data.startswith("renew_"):
+        _, plan_key = data.split("_", 1)
+        nombre, dias, link = PLAN_INFO[plan_key]
+        texto = (
+            f"{nombre}\n"
+            f"¿cómo {'adquirir' if data.startswith('buy') else 'renovar'}?\n"
+            "haz clic en el enlace de compra y toma un pantallazo que muestre que adquiriste el gamepass. asegúrate de que se vean tu nombre de usuario y la confirmación de compra, ¡y listo! envía la captura por este chat.\n"
+            "𝄞 ojo : si la imagen tiene recortes o está editada, no se considerará legítima. en ese caso, deberás contactar al owner. @dresesc\n\n"
+            f"link de compra : {link}\n"
+            f"¡muchas gracias por {'adquirir' if data.startswith('buy') else 'renovar'} 𝔀inter 𝓹riv! disfruta tu estadía con nosotros."
+        )
+        await query.message.reply_text(texto)
+        context.user_data["pending_plan"] = (dias, data.startswith("renew"))
+
+async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    sub = get_user(user.id)
+    if "pending_plan" not in context.user_data:
+        return
+    dias, is_renew = context.user_data["pending_plan"]
+    caption = f"comprobante recibido de {user.full_name} (@{user.username or user.id})\n"
+    if not sub or sub[1] == "free":
+        caption += f"{user.id} adquiere el priv por primera vez"
+    else:
+        caption += f"{user.id} renueva su suscripción en el priv."
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✔️ aprobar", callback_data=f"approve_{user.id}_{dias}_{is_renew}"),
+         InlineKeyboardButton("✖️ rechazar", callback_data=f"reject_{user.id}")]
+    ])
+    photo = update.message.photo[-1]
+    await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo.file_id, caption=caption, reply_markup=markup)
+    await update.message.reply_text("tu comprobante fue enviado al owner, espera aprobación. 🪽")
+
+async def admin_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data.split("_")
+    if data[0] == "approve":
+        user_id = int(data[1]); dias = int(data[2]); is_renew = data[3] == "True"
+        u = await context.bot.get_chat(user_id)
+        add_user(user_id, u.username or u.full_name, "premium", dias)
+        msg = "°˖➴ tu suscripción ha sido "
+        msg += "renovada, ¡gracias por seguir confiando en nosotros!" if is_renew else "activada."
+        msg += f"\n¡ingresa a nuestro priv! {GROUP_LINK}"
+        await context.bot.send_message(user_id, msg)
+        await query.edit_message_caption(caption="✔️ aprobado")
+    elif data[0] == "reject":
+        user_id = int(data[1])
+        await context.bot.send_message(user_id, "tu comprobante fue rechazado por el owner. contacta a @dresesc")
+        await query.edit_message_caption(caption="✖️ rechazado")
+
 # ========= TRACKING =========
 async def track_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -386,7 +487,7 @@ def main():
     init_db()
     app = Application.builder().token(TOKEN).build()
 
-    # comandos
+    # comandos originales
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("sub", sub))
     app.add_handler(CommandHandler("free", free))
@@ -398,11 +499,19 @@ def main():
     app.add_handler(CommandHandler("listusers", listusers))
     app.add_handler(CommandHandler("whois", whois))
 
-    # tracking de usuarios
+    # comandos nuevos
+    app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(CommandHandler("buy", buy))
+    app.add_handler(CommandHandler("renew", renew))
+
+    # botones y fotos
+    app.add_handler(CallbackQueryHandler(button_handler, pattern="^(buy_|renew_).*"))
+    app.add_handler(CallbackQueryHandler(admin_buttons, pattern="^(approve_|reject_).*"))
+    app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
+
+    # tracking y recordatorios
     app.add_handler(MessageHandler(filters.ALL, track_messages))
     app.add_handler(ChatMemberHandler(track_chat_members, ChatMemberHandler.CHAT_MEMBER))
-
-    # recordatorio 1 vez al día
     app.job_queue.run_repeating(reminder_job, interval=86400, first=10)
 
     print("bot corriendo con WEBHOOK...")
