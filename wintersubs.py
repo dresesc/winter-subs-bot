@@ -240,20 +240,15 @@ async def rmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def rsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
-
     user = await resolve_target(update, context)
     if not user:
         await update.message.reply_text("uso: /unsub @usuario (o responde a su mensaje).")
         return
-
     try:
         remove_user(user.id)
-        # kick temporal
-        await context.bot.ban_chat_member(update.effective_chat.id, user.id)
-        await context.bot.unban_chat_member(update.effective_chat.id, user.id)
-        await update.message.reply_text(f"{user.full_name} fue expulsado de 𝔀inter 𝓹riv..")
+        await update.message.reply_text(f"{user.full_name} ha sido removido de la base de datos de 𝔀inter 𝓹riv.")
     except Exception as e:
-        await update.message.reply_text(f"error al expulsar: {e}")
+        await update.message.reply_text(f"error al remover usuario de la base de datos: {e}")
 
 async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
