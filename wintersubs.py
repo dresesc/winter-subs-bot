@@ -291,15 +291,17 @@ async def rsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user:
         await update.message.reply_text("uso: /unsub @usuario (o responde a su mensaje).")
         return
+
     try:
-    ident = username_or_id(user.username, user.id)
-    deleted = remove_user(user.id)
-    if deleted:
-        await update.message.reply_text(f"{ident} ha sido removido de la base de datos de 𝔀inter 𝓹riv.")
-    else:
-        await update.message.reply_text(f"{ident} no tenía registro en la base de datos.")
-except Exception as e:
-    await update.message.reply_text(f"error al remover usuario de la base de datos: {e}")
+        ident = username_or_id(user.username, user.id)
+        deleted = remove_user(user.id)
+        if deleted:
+            await update.message.reply_text(f"{ident} ha sido removido de la base de datos de 𝔀inter 𝓹riv.")
+        else:
+            await update.message.reply_text(f"{ident} no tenía registro en la base de datos.")
+    except Exception as e:
+        await update.message.reply_text(f"error al remover usuario de la base de datos: {e}")
+
 
 
 async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
