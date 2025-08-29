@@ -6,7 +6,12 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ChatMem
 from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler,
     ContextTypes, MessageHandler, ChatMemberHandler, filters
+from datetime import datetime, timedelta
 )
+from datetime import datetime, timedelta
+import pytz 
+
+COLOMBIA_TZ = pytz.timezone("America/Bogota")
 
 # ========= CONFIG =========
 TOKEN = os.getenv("BOT_TOKEN")
@@ -52,7 +57,7 @@ def add_user(user_id, username, tipo, dias=None):
     cur = conn.cursor()
     vence = None
     if dias:
-        vence = (datetime.now() + timedelta(days=dias)).date()
+        vence = (datetime.now(COLOMBIA_TZ) + timedelta(days=dias)).date()
     cur.execute("""
         INSERT INTO users (user_id, username, tipo, vence)
         VALUES (%s, %s, %s, %s)
@@ -233,7 +238,7 @@ async def sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     add_user(user.id, user.username or user.full_name, "premium", dias)
-    fecha_vencimiento = (datetime.now() + timedelta(days=dias)).strftime("%d/%m/%Y")
+    fecha_vencimiento = (datetime.now(COLOMBIA_TZ) + timedelta(days=dias)).strftime("%d/%m/%Y")
     await update.message.reply_text(
         f"¡hola, {user.full_name}! se han añadido {dias} día(s) a tu suscripción premium.\n"
         f"🪽⊹ tu cupo vence el {fecha_vencimiento}"
@@ -337,9 +342,9 @@ async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nombre = user.full_name
 
     if tipo == "premium":
-        dias = (vence - datetime.now().date()).days if vence else None
+        dias = (vence - datetime.now(COLOMBIA_TZ).date()).days if vence else None
         await update.message.reply_text(
-            f"¡hola, {nombre}! eres cupo premium dentro de 𝔀inter 𝓹riv.\n"
+            f"¡hola, {nombre}! eres cupo premium dentro de 𝔀inter 𝓹riv.\n\n"
             f"🪽⊹ tu cupo vence el {vence.strftime('%d/%m/%Y') if vence else 'desconocido'}\n"
             f"te quedan {dias if dias is not None else '??'} día(s) con nosotros."
         )
@@ -476,16 +481,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         texto = (
             f"{nombre}\n"
-            f"¿cómo {'adquirir' if data.startswith('buy') else 'renovar'}?\n"
+            f"¿cómo {'adquirir' if data.startswith('buy') else 'renovar'}?\n\n"
 
             "haz clic en el enlace de compra y toma un pantallazo que muestre que adquiriste el gamepass. "
             "asegúrate de que se vean tu nombre de usuario y la confirmación de compra, ¡y listo! "
-            "envía la captura por este chat.\n"
+            "envía la captura por este chat.\n\n"
             
             "𝄞 ojo : si la imagen tiene recortes o está editada, no se considerará legítima. "
             "en ese caso, deberás contactar al owner. @dresesc\n\n"
             
-            f"link de compra : {link}\n"
+            f"link de compra : {link}\n\n"
             
             f"¡muchas gracias por {'adquirir' if data.startswith('buy') else 'renovar'} 𝔀inter 𝓹riv! "
             "disfruta tu estadía con nosotros."
@@ -545,7 +550,7 @@ async def admin_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_renew:
             msg += "renovada, ¡gracias por seguir confiando en nosotros!"
         else:
-            msg += "activada.\n¡ingresa a nuestro priv! " + GROUP_LINK
+            msg += "activada.\n\n ¡ingresa a nuestro priv! " + GROUP_LINK
 
         await context.bot.send_message(user_id, msg)
         await query.edit_message_caption(caption="✔️ aprobado")
@@ -572,7 +577,7 @@ async def reminder_job(context):
     for user_id, username, tipo, vence in usuarios:
         if tipo == "premium" and vence:
             fecha_venc = vence
-            if fecha_venc - timedelta(days=2) == datetime.now().date():
+            if fecha_venc - timedelta(days=2) == datetime.now(COLOMBIA_TZ).date():
                 try:
                     await context.bot.send_message(
                         user_id,
