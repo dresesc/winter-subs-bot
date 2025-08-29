@@ -314,11 +314,10 @@ async def rsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if deleted_users or deleted_members:
             await update.message.reply_text(
-                f"user_id {uid} fue removido de 𝔀inter 𝓹riv. "
-                f"(users: {deleted_users}, members: {deleted_members})."
+                f"{uid} fue removido de 𝔀inter 𝓹riv. "
             )
         else:
-            await update.message.reply_text(f"user_id {uid} no estaba en la base de datos.")
+            await update.message.reply_text(f"{uid} no estaba en la base de datos.")
     except Exception as e:
         await update.message.reply_text(f"error al remover usuario: {e}")
 
