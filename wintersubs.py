@@ -288,20 +288,40 @@ async def rmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def rsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
-    user = await resolve_target(update, context)
-    if not user:
-        await update.message.reply_text("uso: /unsub @usuario (o responde a su mensaje).")
+
+    # debe venir un argumento y ser un número
+    if not context.args or not context.args[0].isdigit():
+        await update.message.reply_text("uso: /rsub user_id")
         return
 
+    uid = int(context.args[0])
+
     try:
-        ident = username_or_id(user.username, user.id)
-        deleted = remove_user(user.id)
-        if deleted:
-            await update.message.reply_text(f"{ident} ha sido removido de la base de datos de 𝔀inter 𝓹riv.")
+        conn = get_conn()
+        cur = conn.cursor()
+
+        # eliminar de users
+        cur.execute("DELETE FROM users WHERE user_id=%s", (uid,))
+        deleted_users = cur.rowcount
+
+        # eliminar de members
+        cur.execute("DELETE FROM members WHERE user_id=%s", (uid,))
+        deleted_members = cur.rowcount
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        if deleted_users or deleted_members:
+            await update.message.reply_text(
+                f"user_id {uid} fue removido de 𝔀inter 𝓹riv. "
+                f"(users: {deleted_users}, members: {deleted_members})."
+            )
         else:
-            await update.message.reply_text(f"{ident} no tenía registro en la base de datos.")
+            await update.message.reply_text(f"user_id {uid} no estaba en la base de datos.")
     except Exception as e:
-        await update.message.reply_text(f"error al remover usuario de la base de datos: {e}")
+        await update.message.reply_text(f"error al remover usuario: {e}")
+
 
 
 
