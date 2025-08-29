@@ -147,7 +147,7 @@ def username_or_id(username, user_id):
     return f"@{username}" if username else str(user_id)
 
 async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """resolver usuario desde reply, @usuario o ID (members, users o get_chat)."""
+    """resolver usuario desde reply, @usuario o ID (buscando en members, users o get_chat)."""
     if update.message.reply_to_message:
         return update.message.reply_to_message.from_user
 
@@ -156,44 +156,42 @@ async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     arg = context.args[0]
 
-    # ID numérico
+    # Caso: ID numérico
     if arg.isdigit():
         uid = int(arg)
 
-        # members
+        # buscar en members
         m = get_member_by_id(uid)
         if m:
             class T: pass
             u = T(); u.id, u.username, u.full_name = m
             return u
 
-        # users
+        # buscar en users
         udb = get_user(uid)
         if udb:
             uname, _, _ = udb
             class T: pass
             u = T(); u.id = uid; u.username = uname; u.full_name = uname or str(uid)
             return u
-        
-            # Telegram (usar @username con arroba para evitar confundir con el admin)
-    try:
-        return await context.bot.get_chat("@" + username_arg)
-    except:
-        return None
 
+        # fallback a Telegram
+        try:
+            return await context.bot.get_chat(uid)
+        except:
+            return None
 
-
-    # @username
+    # Caso: @username
     username_arg = arg.lstrip("@")
 
-    # members
+    # buscar en members
     m = get_member_by_username(username_arg)
     if m:
         class T: pass
         u = T(); u.id, u.username, u.full_name = m
         return u
 
-    # users
+    # buscar en users
     udb = get_user_by_username(username_arg)
     if udb:
         uid, uname, _, _ = udb
@@ -201,11 +199,12 @@ async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
         u = T(); u.id = uid; u.username = uname; u.full_name = uname or str(uid)
         return u
 
-    # Telegram
+    # fallback a Telegram (usar arroba)
     try:
-        return await context.bot.get_chat(username_arg)
+        return await context.bot.get_chat("@" + username_arg)
     except:
         return None
+
 
 # ========= HANDLERS =========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
