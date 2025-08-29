@@ -174,12 +174,14 @@ async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
             class T: pass
             u = T(); u.id = uid; u.username = uname; u.full_name = uname or str(uid)
             return u
+        
+            # Telegram (usar @username con arroba para evitar confundir con el admin)
+    try:
+        return await context.bot.get_chat("@" + username_arg)
+    except:
+        return None
 
-        # Telegram
-        try:
-            return await context.bot.get_chat(uid)
-        except:
-            return None
+
 
     # @username
     username_arg = arg.lstrip("@")
