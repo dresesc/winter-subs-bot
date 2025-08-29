@@ -321,9 +321,6 @@ async def rsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"error al remover usuario: {e}")
 
-
-
-
 async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
@@ -340,20 +337,23 @@ async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nombre = user.full_name
 
     if tipo == "premium":
+        dias = (vence - datetime.now().date()).days if vence else None
         await update.message.reply_text(
             f"¡hola, {nombre}! eres cupo premium dentro de 𝔀inter 𝓹riv.\n"
-            f"🪽⊹ tu cupo vence el {vence.strftime('%d/%m/%Y') if vence else 'desconocido'}"
+            f"🪽⊹ tu cupo vence el {vence.strftime('%d/%m/%Y') if vence else 'desconocido'}\n"
+            f"te quedan {dias if dias is not None else '??'} día(s) con nosotros."
         )
     elif tipo == "free":
         await update.message.reply_text(
             f"¡hola, {nombre}! eres cupo free dentro de 𝔀inter 𝓹riv. "
-        "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo. ❤︎"
+            "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo. ❤︎"
         )
     elif tipo == "mod":
         await update.message.reply_text(
             f"¡hola, {nombre}! eres parte del staff en 𝔀inter 𝓹riv. "
             "tu cupo es ilimitado mientras seas parte de nuestra administración. 🪽⊹"
         )
+
 
 async def listmods(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
