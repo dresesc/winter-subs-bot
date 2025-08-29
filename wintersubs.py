@@ -69,9 +69,12 @@ def remove_user(user_id):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("DELETE FROM users WHERE user_id=%s", (user_id,))
+    deleted = cur.rowcount
     conn.commit()
     cur.close()
     conn.close()
+    return deleted
+
 
 def get_user(user_id):
     conn = get_conn()
@@ -85,7 +88,10 @@ def get_user(user_id):
 def get_user_by_username(username):
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT user_id, username, tipo, vence FROM users WHERE username=%s", (username,))
+    cur.execute(
+        "SELECT user_id, username, tipo, vence FROM users WHERE LOWER(username)=LOWER(%s)",
+        (username,)
+    )
     row = cur.fetchone()
     cur.close()
     conn.close()
@@ -118,7 +124,10 @@ def update_member(user_id, username, full_name):
 def get_member_by_username(username):
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT user_id, username, full_name FROM members WHERE username=%s", (username,))
+    cur.execute(
+        "SELECT user_id, username, full_name FROM members WHERE LOWER(username)=LOWER(%s)",
+        (username,)
+    )
     row = cur.fetchone()
     cur.close()
     conn.close()
@@ -138,7 +147,7 @@ def username_or_id(username, user_id):
     return f"@{username}" if username else str(user_id)
 
 async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """resolver usuario desde reply, @usuario o ID (buscando en members, users o get_chat)."""
+    """resolver usuario desde reply, @usuario o ID (members, users o get_chat)."""
     if update.message.reply_to_message:
         return update.message.reply_to_message.from_user
 
@@ -147,64 +156,54 @@ async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     arg = context.args[0]
 
-    # Caso: ID numérico
+    # ID numérico
     if arg.isdigit():
         uid = int(arg)
 
-        # buscar en members
-        member = get_member_by_id(uid)
-        if member:
-            class Temp: pass
-            u = Temp()
-            u.id, u.username, u.full_name = member
+        # members
+        m = get_member_by_id(uid)
+        if m:
+            class T: pass
+            u = T(); u.id, u.username, u.full_name = m
             return u
 
-        # buscar en users
-        user_db = get_user(uid)
-        if user_db:
-            username, tipo, vence = user_db
-            class Temp: pass
-            u = Temp()
-            u.id = uid
-            u.username = username
-            u.full_name = username or str(uid)
+        # users
+        udb = get_user(uid)
+        if udb:
+            uname, _, _ = udb
+            class T: pass
+            u = T(); u.id = uid; u.username = uname; u.full_name = uname or str(uid)
             return u
 
-        # fallback a Telegram
+        # Telegram
         try:
             return await context.bot.get_chat(uid)
         except:
             return None
 
-    # Caso: @username
-    else:
-        username_arg = arg.lstrip("@")
+    # @username
+    username_arg = arg.lstrip("@")
 
-        # buscar en members
-        member = get_member_by_username(username_arg)
-        if member:
-            class Temp: pass
-            u = Temp()
-            u.id, u.username, u.full_name = member
-            return u
+    # members
+    m = get_member_by_username(username_arg)
+    if m:
+        class T: pass
+        u = T(); u.id, u.username, u.full_name = m
+        return u
 
-        # buscar en users
-        user_db = get_user_by_username(username_arg)
-        if user_db:
-            uid, uname, tipo, vence = user_db
-            class Temp: pass
-            u = Temp()
-            u.id = uid
-            u.username = uname
-            u.full_name = uname or str(uid)
-            return u
+    # users
+    udb = get_user_by_username(username_arg)
+    if udb:
+        uid, uname, _, _ = udb
+        class T: pass
+        u = T(); u.id = uid; u.username = uname; u.full_name = uname or str(uid)
+        return u
 
-        # fallback a Telegram
-        try:
-            return await context.bot.get_chat(username_arg)
-        except:
-            return None
-
+    # Telegram
+    try:
+        return await context.bot.get_chat(username_arg)
+    except:
+        return None
 
 # ========= HANDLERS =========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -282,9 +281,8 @@ async def rmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     remove_user(user.id)
-    await update.message.reply_text(
-        f"{user.full_name} ha sido removido del staff de 𝔀inter 𝓹riv."
-    )
+    await update.message.reply_text(f"{username_or_id(user.username, user.id)} ha sido removido del staff de 𝔀inter 𝓹riv.")
+
 
 async def rsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -294,10 +292,15 @@ async def rsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("uso: /unsub @usuario (o responde a su mensaje).")
         return
     try:
-        remove_user(user.id)
-        await update.message.reply_text(f"{user.full_name} ha sido removido de la base de datos de 𝔀inter 𝓹riv.")
-    except Exception as e:
-        await update.message.reply_text(f"error al remover usuario de la base de datos: {e}")
+    ident = username_or_id(user.username, user.id)
+    deleted = remove_user(user.id)
+    if deleted:
+        await update.message.reply_text(f"{ident} ha sido removido de la base de datos de 𝔀inter 𝓹riv.")
+    else:
+        await update.message.reply_text(f"{ident} no tenía registro en la base de datos.")
+except Exception as e:
+    await update.message.reply_text(f"error al remover usuario de la base de datos: {e}")
+
 
 async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
