@@ -235,7 +235,7 @@ async def sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user(user.id, user.username or user.full_name, "premium", dias)
     fecha_vencimiento = (datetime.now() + timedelta(days=dias)).strftime("%d/%m/%Y")
     await update.message.reply_text(
-        f"¡hola, {user.full_name}! se han añadido {dias} días a tu suscripción premium.\n"
+        f"¡hola, {user.full_name}! se han añadido {dias} día(s) a tu suscripción premium.\n"
         f"🪽⊹ tu cupo vence el {fecha_vencimiento}"
     )
 
