@@ -82,6 +82,15 @@ def get_user(user_id):
     conn.close()
     return row
 
+def get_user_by_username(username):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, username, tipo, vence FROM users WHERE username=%s", (username,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
 def get_all_users():
     conn = get_conn()
     cur = conn.cursor()
@@ -129,7 +138,7 @@ def username_or_id(username, user_id):
     return f"@{username}" if username else str(user_id)
 
 async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """resolver usuario desde reply, @usuario o ID (usando tabla members)."""
+    """resolver usuario desde reply, @usuario o ID (buscando en members, users o get_chat)."""
     if update.message.reply_to_message:
         return update.message.reply_to_message.from_user
 
@@ -137,25 +146,65 @@ async def resolve_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return None
 
     arg = context.args[0]
-    if arg.isdigit():  # ID numérico
-        member = get_member_by_id(int(arg))
+
+    # Caso: ID numérico
+    if arg.isdigit():
+        uid = int(arg)
+
+        # buscar en members
+        member = get_member_by_id(uid)
         if member:
             class Temp: pass
             u = Temp()
             u.id, u.username, u.full_name = member
             return u
-        else:
+
+        # buscar en users
+        user_db = get_user(uid)
+        if user_db:
+            username, tipo, vence = user_db
+            class Temp: pass
+            u = Temp()
+            u.id = uid
+            u.username = username
+            u.full_name = username or str(uid)
+            return u
+
+        # fallback a Telegram
+        try:
+            return await context.bot.get_chat(uid)
+        except:
             return None
-    else:  # @usuario
+
+    # Caso: @username
+    else:
         username_arg = arg.lstrip("@")
+
+        # buscar en members
         member = get_member_by_username(username_arg)
         if member:
             class Temp: pass
             u = Temp()
             u.id, u.username, u.full_name = member
             return u
-        else:
+
+        # buscar en users
+        user_db = get_user_by_username(username_arg)
+        if user_db:
+            uid, uname, tipo, vence = user_db
+            class Temp: pass
+            u = Temp()
+            u.id = uid
+            u.username = uname
+            u.full_name = uname or str(uid)
+            return u
+
+        # fallback a Telegram
+        try:
+            return await context.bot.get_chat(username_arg)
+        except:
             return None
+
 
 # ========= HANDLERS =========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
