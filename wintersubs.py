@@ -6,10 +6,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ChatMem
 from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler,
     ContextTypes, MessageHandler, ChatMemberHandler, filters
-from datetime import datetime, timedelta
 )
-from datetime import datetime, timedelta
-import pytz 
+import pytz
 
 COLOMBIA_TZ = pytz.timezone("America/Bogota")
 
