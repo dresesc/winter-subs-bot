@@ -238,11 +238,11 @@ async def sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user(user.id, user.username or user.full_name, "premium", dias)
     fecha_vencimiento = (datetime.now(COLOMBIA_TZ) + timedelta(days=dias)).strftime("%d/%m/%Y")
     await update.message.reply_text(
-        f"¡hola, {user.full_name}! se han añadido {dias} día(s) a tu suscripción premium.\n"
-        f"🪽⊹ tu cupo vence el {fecha_vencimiento}"
+        f"⁺   𓈒  ꒰ ¡hola, {user.full_name}! ︶ྀི❤︎ \n\n" "se han añadido {dias} día(s) a tu suscripción premium en 𝔀inter 𝓹riv.\n" "¡disfruta mucho de este espacio durante tu estadía! \n\n"
+        f"tu cupo vence el {fecha_vencimiento}. 🪽⊹"
     )
 
-async def free(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cupito(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
     if not context.args and not update.message.reply_to_message:
@@ -256,8 +256,8 @@ async def free(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     add_user(user.id, user.username or user.full_name, "free")
     await update.message.reply_text(
-        f"¡hola, {user.full_name}! eres cupo free dentro de 𝔀inter 𝓹riv. "
-        "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo. ❤︎"
+        f"♡ᰈ ¡hola, {user.full_name}! ꯭ ֗ ⠀˚\n\n" "eres cupo free dentro de 𝔀inter 𝓹riv. \n" "¡disfruta mucho de este espacio durante tu estadía!\n\n"
+        "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo. ¦𓐇ໃ ۫⑅"
     )
 
 async def addmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -271,8 +271,8 @@ async def addmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     add_user(user.id, user.username or user.full_name, "mod")
     await update.message.reply_text(
-        f"¡hola, {user.full_name}! ahora eres parte del staff "
-        "con cupo ilimitado dentro de 𝔀inter 𝓹riv. 🪽⊹"
+        f"໒꒱ ¡hola, {user.full_name} ‧₊˚\n\n" "ahora eres parte del staff con cupo ilimitado dentro de 𝔀inter 𝓹riv.\n\n"
+        "¡muchas gracias por formar parte de este proyecto! ★៹°"
     )
 
 async def rmod(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -342,19 +342,19 @@ async def mysub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if tipo == "premium":
         dias = (vence - datetime.now(COLOMBIA_TZ).date()).days if vence else None
         await update.message.reply_text(
-            f"¡hola, {nombre}! eres cupo premium dentro de 𝔀inter 𝓹riv.\n\n"
-            f"🪽⊹ tu cupo vence el {vence.strftime('%d/%m/%Y') if vence else 'desconocido'}\n"
-            f"te quedan {dias if dias is not None else '??'} día(s) con nosotros."
+            f"⁺   𓈒  ꒰ ¡hola {nombre}!  ︶ྀི❤︎\n\n" "⊹ ׂ. eres cupo premium dentro de 𝔀inter 𝓹riv.\n\n"
+            f"tu cupo vence el {vence.strftime('%d/%m/%Y') if vence else 'desconocido'}.\n"
+            f"te quedan {dias if dias is not None else '??'} día(s) con nosotros. 🪽⊹"
         )
     elif tipo == "free":
         await update.message.reply_text(
-            f"¡hola, {nombre}! eres cupo free dentro de 𝔀inter 𝓹riv. "
-            "recuerda mandar un mínimo 4 referencias semanales para continuar con tu cupo. ❤︎"
+            f"♡ᰈ ¡hola, {nombre}! ꯭ ֗ ⠀˚\n\n" "♪ ° eres cupo free dentro de 𝔀inter 𝓹riv.\n\n"
+            "mantén el mínimo de referencias semanales para conservar tu cupito.\n" "usa /refes para ver cuántas llevas. ¦𓐇ໃ ۫⑅"
         )
     elif tipo == "mod":
         await update.message.reply_text(
-            f"¡hola, {nombre}! eres parte del staff en 𝔀inter 𝓹riv. "
-            "tu cupo es ilimitado mientras seas parte de nuestra administración. 🪽⊹"
+            f"໒꒱ ¡hola, {nombre}! ‧₊˚\n\n" "˚˖𓍢 eres parte del staff en 𝔀inter 𝓹riv.\n\n"
+            "tu cupo es ilimitado mientras seas parte de nuestra administración. ★៹°"
         )
 
 
@@ -384,11 +384,11 @@ async def listusers(update: Update, context: ContextTypes.DEFAULT_TYPE):
         nombre = username_or_id(username, user_id)
 
         if tipo == "premium":
-            texto += f"- {nombre} | premium (vence: {vence.strftime('%d/%m/%Y') if vence else '??'})\n"
+            texto += f"- {nombre} ⦂ premium (vence: {vence.strftime('%d/%m/%Y') if vence else '??'})\n"
         elif tipo == "free":
-            texto += f"- {nombre} | free\n"
+            texto += f"- {nombre} ⦂ free\n"
         elif tipo == "mod":
-            texto += f"- {nombre} | staff (mod)\n"
+            texto += f"- {nombre} ⦂ admin\n"
 
     await update.message.reply_text(texto)
 
@@ -594,7 +594,7 @@ def main():
     # comandos originales
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("sub", sub))
-    app.add_handler(CommandHandler("free", free))
+    app.add_handler(CommandHandler("cupito", cupito))
     app.add_handler(CommandHandler("addmod", addmod))
     app.add_handler(CommandHandler("rmod", rmod))
     app.add_handler(CommandHandler("rsub", rsub))
