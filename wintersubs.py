@@ -238,7 +238,8 @@ async def sub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user(user.id, user.username or user.full_name, "premium", dias)
     fecha_vencimiento = (datetime.now(COLOMBIA_TZ) + timedelta(days=dias)).strftime("%d/%m/%Y")
     await update.message.reply_text(
-        f"⁺   𓈒  ꒰ ¡hola, {user.full_name}! ︶ྀི❤︎ \n\n" "se han añadido {dias} día(s) a tu suscripción premium en 𝔀inter 𝓹riv.\n" "¡disfruta mucho de este espacio durante tu estadía! \n\n"
+        f"⁺   𓈒  ꒰ ¡hola, {user.full_name}! ︶ྀི❤︎ \n\n" 
+        f"se han añadido {dias} día(s) a tu suscripción premium en 𝔀inter 𝓹riv.\n" "¡disfruta mucho de este espacio durante tu estadía! \n\n"
         f"tu cupo vence el {fecha_vencimiento}. 🪽⊹"
     )
 
